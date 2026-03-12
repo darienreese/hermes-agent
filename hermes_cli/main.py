@@ -1008,6 +1008,7 @@ def _model_flow_openai_codex(config, current_model=""):
     from hermes_cli.auth import (
         get_codex_auth_status, _prompt_model_selection, _save_model_choice,
         _update_config_for_provider, _login_openai_codex,
+        _codex_browser_callback_login, _codex_device_code_login, _save_codex_tokens,
         PROVIDER_REGISTRY, DEFAULT_CODEX_BASE_URL,
     )
     from hermes_cli.codex_models import get_codex_model_ids
@@ -1018,9 +1019,23 @@ def _model_flow_openai_codex(config, current_model=""):
     if not status.get("logged_in"):
         print("Not logged into OpenAI Codex. Starting login...")
         print()
+        print("Choose login method:")
+        print("  [1] Browser (opens browser, no code needed)")
+        print("  [2] Device code (for headless/remote environments)")
+        print()
         try:
-            mock_args = argparse.Namespace()
-            _login_openai_codex(mock_args, PROVIDER_REGISTRY["openai-codex"])
+            choice = input("Login method [1]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            choice = "1"
+        try:
+            if choice in ("", "1"):
+                creds = _codex_browser_callback_login()
+            else:
+                creds = _codex_device_code_login()
+            _save_codex_tokens(creds["tokens"], creds.get("last_refresh"))
+            _update_config_for_provider("openai-codex", creds.get("base_url", DEFAULT_CODEX_BASE_URL))
+            print()
+            print("Login successful!")
         except SystemExit:
             print("Login cancelled or failed.")
             return
